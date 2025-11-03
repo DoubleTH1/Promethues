@@ -317,3 +317,80 @@ Sau khi đăng nhập lần đầu sẽ được yêu cầu đổi mật khẩu
 - Cấu hình các thông số sau:
   - Name: Prometheus
   - URL: `http://ip_slave:9090` (thay ip_slave bằng địa chỉ IP của node slave nơi Prometheus đang chạy)
+- Nhấn nút "Save & Test" để lưu cấu hình và kiểm tra kết nối
+Nếu kết nối thành công, bạn sẽ thấy thông báo "Data source is working".
+## Tạo Dashboard giám sát
+- Mở giao diện web của Grafana tại http://ip_slave:3000
+- Đăng nhập với tài khoản admin
+- Chọn biểu tượng dấu cộng (+) ở thanh bên trái và chọn "Dashboard"
+- Nhấn "Add new panel"
+- Trong phần "Query", chọn data source là "Prometheus"
+- Nhập truy vấn PromQL để lấy dữ liệu từ Node Exporter, ví dụ:
+    - CPU Usage: `100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)`
+    - Memory Usage: `node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes`
+    - Disk Usage: `node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} - node_filesystem_free_bytes{fstype!~"tmpfs|overlay"}`
+    - Network Traffic: `rate(node_network_receive_bytes_total[5m])` và `rate(node_network_transmit_bytes_total[5m])`
+- Tùy chỉnh biểu đồ theo ý muốn và nhấn "Apply" để thêm vào dashboard
+- Lặp lại các bước trên để thêm nhiều panel giám sát khác nhau vào dashboard
+- Sau khi hoàn tất, nhấn "Save dashboard" để lưu lại dashboard của bạn
+# Chi tiết về cách hoạt động của node exporter
+Node Exporter là một công cụ thu thập và xuất các metrics hệ thống từ các node (máy chủ) trong môi trường của bạn. Dưới đây là chi tiết về cách hoạt động của Node Exporter:
+1. **Cài đặt và Khởi động**:
+   - Node Exporter được cài đặt trên mỗi node mà bạn muốn giám sát. Sau khi cài đặt, nó được khởi động như một dịch vụ hệ thống (systemd service) và chạy liên tục trên node đó.
+2. **Thu thập Metrics**:
+   - Node Exporter thu thập các metrics hệ thống từ node, bao gồm CPU, bộ nhớ, đĩa, mạng và nhiều khía cạnh khác của hệ thống. Nó sử dụng các thư viện và API hệ thống để truy xuất thông tin này.
+3. **Xuất Metrics**:
+    - Node Exporter xuất các metrics đã thu thập dưới dạng định dạng mà Prometheus có thể hiểu được. Các metrics này được cung cấp thông qua một endpoint HTTP (mặc định là `http://<node_ip>:9100/metrics`).
+4. **Tích hợp với Prometheus**:
+   - Prometheus được cấu hình để định kỳ truy cập endpoint của Node Exporter trên mỗi node. Prometheus gửi các yêu cầu HTTP GET đến endpoint này để thu thập dữ liệu metrics.
+   - Prometheus lưu trữ các metrics thu thập được trong cơ sở dữ liệu time-series của nó, cho phép bạn truy vấn và phân tích dữ liệu theo thời gian.
+5. **Giám sát và Cảnh báo**:
+   - Dữ liệu metrics thu thập từ Node Exporter có thể được sử dụng để tạo các dashboard giám sát trong Grafana hoặc các công cụ tương tự.
+   - Bạn cũng có thể thiết lập các quy tắc cảnh báo trong Prometheus dựa trên các metrics này để nhận thông báo khi có sự cố xảy ra trên các node.
+5. **Cập nhật và Bảo trì**:
+   - Node Exporter cần được cập nhật định kỳ để đảm bảo rằng nó hỗ trợ các tính năng mới và vá các lỗ hổng bảo mật. Quá trình cập nhật thường bao gồm việc tải xuống phiên bản mới, thay thế binary và khởi động lại dịch vụ.
+Tóm lại, Node Exporter hoạt động như một cầu nối giữa hệ thống của bạn và Prometheus, cung cấp dữ liệu quan trọng để giám sát hiệu suất và sức khỏe của các node trong môi trường của bạn.
+# Chi tiết về cách hoạt động của Prometheus
+Prometheus là một hệ thống giám sát và cảnh báo mã nguồn mở được thiết kế để thu thập, lưu trữ và truy vấn các metrics từ các ứng dụng và hệ thống. Dưới đây là chi tiết về cách hoạt động của Prometheus:
+1. **Thu thập Metrics**:
+    - Prometheus thu thập các metrics từ các nguồn khác nhau, bao gồm Node Exporter, ứng dụng tùy chỉnh và các dịch vụ khác. Nó sử dụng mô hình "pull" để định kỳ gửi các yêu cầu HTTP GET đến các endpoint cung cấp metrics.
+    - Các nguồn metrics phải tuân theo định dạng mà Prometheus hiểu được, thường là định dạng text-based.
+2. **Lưu trữ Dữ liệu**:
+    - Các metrics thu thập được được lưu trữ trong cơ sở dữ liệu time-series của Prometheus. Dữ liệu được lưu trữ theo thời gian, cho phép bạn truy vấn và phân tích các xu hướng và mẫu trong dữ liệu.
+    - Prometheus sử dụng một định dạng lưu trữ hiệu quả để tối ưu hóa việc lưu trữ và truy xuất dữ liệu.
+3. **Truy vấn Dữ liệu**:
+    - Prometheus cung cấp một ngôn ngữ truy vấn mạnh mẽ gọi là PromQL (Prometheus Query Language) để truy vấn dữ liệu metrics. Bạn có thể sử dụng PromQL để tạo các biểu đồ, bảng và cảnh báo dựa trên dữ liệu thu thập được.
+    - PromQL hỗ trợ các phép toán phức tạp, cho phép bạn phân tích dữ liệu theo nhiều cách khác nhau.       
+4. **Cảnh báo**:
+    - Prometheus có khả năng thiết lập các quy tắc cảnh báo dựa trên các metrics thu thập được. Khi một điều kiện cảnh báo được kích hoạt, Prometheus có thể gửi thông báo qua các kênh khác nhau như email, Slack hoặc các hệ thống quản lý sự cố.
+5. **Tích hợp với Công cụ Giám sát**:
+    - Prometheus tích hợp tốt với các công cụ giám sát và trực quan hóa như Grafana. Có thể sử dụng Grafana để tạo các dashboard tùy chỉnh dựa trên dữ liệu từ Prometheus.
+6. **Mở rộng và Phân phối**:
+    - Prometheus hỗ trợ kiến trúc phân phối, cho phép triển khai nhiều instance Prometheus để thu thập dữ liệu từ các môi trường lớn hơn. Nó cũng hỗ trợ federation, cho phép tổng hợp dữ liệu từ nhiều instance Prometheus.
+7. **Cập nhật và Bảo trì**:
+    - Prometheus cần được cập nhật định kỳ để đảm bảo rằng nó hỗ trợ các tính năng mới và vá các lỗ hổng bảo mật. Quá trình cập nhật thường bao gồm việc tải xuống phiên bản mới, thay thế binary và khởi động lại dịch vụ.
+Tóm lại, Prometheus hoạt động như một hệ thống giám sát toàn diện, cung cấp các công cụ để thu thập, lưu trữ, truy vấn và cảnh báo dựa trên dữ liệu metrics từ các hệ thống và ứng dụng của bạn.
+# Chi tiết về cách hoạt động của Grafana
+Grafana là một nền tảng mã nguồn mở để trực quan hóa và giám sát dữ liệu từ nhiều nguồn khác nhau, bao gồm Prometheus. Dưới đây là chi tiết về cách hoạt động của Grafana:
+1. **Kết nối với Nguồn Dữ liệu**:
+   - Grafana hỗ trợ kết nối với nhiều loại nguồn dữ liệu khác nhau, bao gồm Prometheus, InfluxDB, Elasticsearch và nhiều hơn nữa. Người dùng có thể cấu hình các nguồn dữ liệu này thông qua giao diện web của Grafana.
+   - Khi kết nối với Prometheus, Grafana sử dụng API của Prometheus để truy vấn dữ liệu metrics.
+2. **Tạo Dashboard**:
+   - Grafana cho phép người dùng tạo các dashboard tùy chỉnh để trực quan hóa dữ liệu. Người dùng có thể thêm nhiều panel vào dashboard, mỗi panel có thể hiển thị dữ liệu dưới dạng biểu đồ, bảng, bản đồ nhiệt và nhiều loại hình trực quan khác.
+   - Mỗi panel có thể được cấu hình để sử dụng các truy vấn PromQL để lấy dữ liệu từ Prometheus.
+3. **Truy vấn Dữ liệu**:
+   - Grafana sử dụng ngôn ngữ truy vấn của nguồn dữ liệu để lấy dữ liệu. Khi sử dụng Prometheus, Grafana gửi các truy vấn PromQL đến Prometheus để lấy dữ liệu metrics cần thiết cho các panel trên dashboard.
+   - Người dùng có thể tùy chỉnh các truy vấn này để hiển thị dữ liệu theo cách họ muốn.
+4. **Cập nhật Dữ liệu Thời gian Thực**:
+   - Grafana hỗ trợ cập nhật dữ liệu thời gian thực trên các dashboard. Người dùng có thể cấu hình tần suất làm mới dữ liệu cho từng panel hoặc toàn bộ dashboard, cho phép họ theo dõi các thay đổi trong dữ liệu một cách liên tục.
+5. **Cảnh báo**:
+   - Grafana có khả năng thiết lập các quy tắc cảnh báo dựa trên dữ liệu hiển thị trên các panel. Khi một điều kiện cảnh báo được kích hoạt, Grafana có thể gửi thông báo qua các kênh khác nhau như email, Slack hoặc các hệ thống quản lý sự cố.
+6. **Quản lý Người dùng và Quyền Truy cập**:
+   - Grafana cung cấp các tính năng quản lý người dùng và quyền truy cập, cho phép người quản trị kiểm soát ai có thể xem hoặc chỉnh sửa các dashboard và nguồn dữ liệu.
+   - Người dùng có thể được phân quyền ở mức độ tổ chức, nhóm hoặc cá nhân.
+7. **Mở rộng và Tùy chỉnh**:
+   - Grafana hỗ trợ các plugin để mở rộng chức năng của nó. Người dùng có thể cài đặt các plugin để thêm các loại panel mới, nguồn dữ liệu hoặc tính năng bổ sung.
+   - Grafana cũng cung cấp một API để người dùng có thể tự động hóa việc quản lý dashboard và nguồn dữ liệu.
+8. **Cập nhật và Bảo trì**:
+   - Grafana cần được cập nhật định kỳ để đảm bảo rằng nó hỗ trợ các tính năng mới và vá các lỗ hổng bảo mật. Quá trình cập nhật thường bao gồm việc tải xuống phiên bản mới, thay thế binary và khởi động lại dịch vụ.
+Tóm lại, Grafana hoạt động như một nền tảng trực quan hóa mạnh mẽ, cho phép người dùng tạo các dashboard tùy chỉnh để giám sát và phân tích dữ liệu từ nhiều nguồn khác nhau, bao gồm Prometheus.
